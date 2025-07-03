@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "check-locale-sync": "ts-node ../scripts/check-locale-sync.ts",
+    "locale-sync": "npm run check-locale-sync",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -66,6 +68,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
+    "@octokit/rest": "^20.1.2",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
