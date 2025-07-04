@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { Octokit } from '@octokit/rest';
 
 // Types for better TypeScript support
@@ -25,40 +26,31 @@ interface GitHubIssue {
 }
 
 class LocaleSyncChecker {
-  private octokit: Octokit;
-  private owner: string;
-  private repo: string;
+  private octokit?: Octokit;
+  private owner?: string;
+  private repo?: string;
   private localesPath: string;
   private masterLocale: string;
   private issueLabel: string;
 
   constructor() {
-    this.octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN,
-    });
-
-    // Extract owner and repo from GitHub environment
     const repository = process.env.GITHUB_REPOSITORY;
     if (!repository) {
-      throw new Error('GITHUB_REPOSITORY environment variable is not set');
+      console.warn('⚠️  GITHUB_REPOSITORY not set; running in local-only mode (no issues will be created).');
+    } else {
+      [this.owner, this.repo] = repository.split('/');
+      this.octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
     }
-    [this.owner, this.repo] = repository.split('/');
-
     this.localesPath = path.join(process.cwd(), 'src', 'locales');
     this.masterLocale = 'en';
     this.issueLabel = 'locale-sync';
   }
 
-  /**
-   * Recursively flatten nested JSON objects into dot notation keys
-   */
   private flattenObject(obj: Record<string, unknown>, prefix = ''): string[] {
     const keys: string[] = [];
-
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
         const newKey = prefix ? `${prefix}.${key}` : key;
-
         if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
           keys.push(...this.flattenObject(obj[key] as Record<string, unknown>, newKey));
         } else {
@@ -66,31 +58,21 @@ class LocaleSyncChecker {
         }
       }
     }
-
     return keys;
   }
 
-  /**
-   * Load and parse a locale JSON file
-   */
   private loadLocaleFile(locale: string): LocaleData {
     const filePath = path.join(this.localesPath, `strings.${locale}.json`);
-
     if (!fs.existsSync(filePath)) {
       throw new Error(`Locale file not found: ${filePath}`);
     }
-
     try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(content) as LocaleData;
+      return JSON.parse(fs.readFileSync(filePath, 'utf8')) as LocaleData;
     } catch (error) {
       throw new Error(`Failed to parse locale file ${filePath}: ${error}`);
     }
   }
 
-  /**
-   * Get all available locale files
-   */
   private getAvailableLocales(): string[] {
     const files = fs.readdirSync(this.localesPath);
     return files
@@ -99,271 +81,125 @@ class LocaleSyncChecker {
       .filter(locale => locale !== this.masterLocale);
   }
 
-  /**
-   * Compare two sets of keys and return missing and extra keys
-   */
   private compareKeys(masterKeys: string[], localeKeys: string[]): LocaleIssues {
     const masterSet = new Set(masterKeys);
     const localeSet = new Set(localeKeys);
-
     const missing = masterKeys.filter(key => !localeSet.has(key));
     const extra = localeKeys.filter(key => !masterSet.has(key));
-
     return { missing, extra };
   }
 
-  /**
-   * Check all locale files for synchronization issues
-   */
   private checkLocaleSync(): LocaleResults {
     console.log('🔍 Checking locale synchronization...');
-
-    // Load master locale
-    const masterData = this.loadLocaleFile(this.masterLocale);
-    const masterKeys = this.flattenObject(masterData).sort();
-
+    const masterKeys = this.flattenObject(this.loadLocaleFile(this.masterLocale)).sort();
     console.log(`📋 Master locale (${this.masterLocale}) has ${masterKeys.length} keys`);
 
     const results: LocaleResults = {};
-    const availableLocales = this.getAvailableLocales();
+    const locales = this.getAvailableLocales();
+    console.log(`🌍 Checking ${locales.length} locale(s): ${locales.join(', ')}`);
 
-    console.log(
-      `🌍 Checking ${availableLocales.length} locale files: ${availableLocales.join(', ')}`
-    );
-
-    for (const locale of availableLocales) {
+    for (const locale of locales) {
       try {
-        const localeData = this.loadLocaleFile(locale);
-        const localeKeys = this.flattenObject(localeData).sort();
-
+        const localeKeys = this.flattenObject(this.loadLocaleFile(locale)).sort();
         const issues = this.compareKeys(masterKeys, localeKeys);
         results[locale] = issues;
-
-        const totalIssues = issues.missing.length + issues.extra.length;
-        console.log(
-          `  ${locale}: ${totalIssues} issues (${issues.missing.length} missing, ${issues.extra.length} extra)`
-        );
-      } catch (error) {
-        console.error(`❌ Error checking locale ${locale}:`, error);
+        console.log(`  • ${locale}: ${issues.missing.length} missing, ${issues.extra.length} extra`);
+      } catch (err) {
+        console.error(`❌ Error for locale ${locale}:`, err);
         results[locale] = { missing: [], extra: [] };
       }
     }
-
     return results;
   }
 
-  /**
-   * Generate issue title for a specific locale
-   */
-  private generateIssueTitle(locale: string): string {
-    return `[Locale Sync] ${locale.toUpperCase()} translation keys out of sync`;
-  }
-
-  /**
-   * Generate issue body with detailed information
-   */
-  private generateIssueBody(locale: string, issues: LocaleIssues): string {
-    const { missing, extra } = issues;
-    let body = `## 🌍 Locale Synchronization Issue\n\n`;
-    body += `The **${locale}** locale file is out of sync with the master English locale.\n\n`;
-
-    if (missing.length > 0) {
-      body += `### 📝 Missing Keys (${missing.length})\n`;
-      body += `The following keys exist in the English locale but are missing in ${locale}:\n\n`;
-      body += missing.map(key => `- \`${key}\``).join('\n');
-      body += '\n\n';
-    }
-
-    if (extra.length > 0) {
-      body += `### 🗑️ Extra Keys (${extra.length})\n`;
-      body += `The following keys exist in ${locale} but not in the English locale:\n\n`;
-      body += extra.map(key => `- \`${key}\``).join('\n');
-      body += '\n\n';
-    }
-
-    body += `### 📋 Action Required\n`;
-    body += `- [ ] Add missing translations for the keys listed above\n`;
-    if (extra.length > 0) {
-      body += `- [ ] Review and remove extra keys or add them to the English locale if needed\n`;
-    }
-    body += `- [ ] Verify the locale file follows the same structure as the English locale\n\n`;
-
-    body += `### 📁 File Location\n`;
-    body += `\`frontend/src/locales/strings.${locale}.json\`\n\n`;
-
-    body += `---\n`;
-    body += `*This issue was automatically created by the Locale Synchronization workflow.*\n`;
-    body += `*It will be automatically updated when locale files are modified.*`;
-
-    return body;
-  }
-
-  /**
-   * Find existing locale sync issues
-   */
   private async findExistingIssues(): Promise<GitHubIssue[]> {
+    if (!this.octokit || !this.owner || !this.repo) return [];
     try {
-      const { data: issues } = await this.octokit.rest.issues.listForRepo({
-        owner: this.owner,
-        repo: this.repo,
-        labels: this.issueLabel,
-        state: 'open',
-      });
-
-      return issues.map(issue => ({
+      const { data } = await this.octokit.rest.issues.listForRepo({ owner: this.owner, repo: this.repo, labels: this.issueLabel, state: 'open' });
+      return data.map(issue => ({
         number: issue.number,
         title: issue.title,
-        body: issue.body || '',
+        body: issue.body ?? '',
         state: issue.state as 'open' | 'closed',
-        labels: issue.labels.map(label => ({
-          name: typeof label === 'string' ? label : label.name || '',
-        })),
+        labels: issue.labels.map(l => ({ name: typeof l === 'string' ? l : l.name || '' })),
       }));
-    } catch (error) {
-      console.error('❌ Error fetching existing issues:', error);
+    } catch (err) {
+      console.error('❌ Failed to fetch issues:', err);
       return [];
     }
   }
 
-  /**
-   * Create or update GitHub issue for locale synchronization
-   */
   private async createOrUpdateIssue(locale: string, issues: LocaleIssues): Promise<void> {
-    const title = this.generateIssueTitle(locale);
+    if (!this.octokit || !this.owner || !this.repo) return;
+    const title = `[Locale Sync] ${locale.toUpperCase()} translation keys out of sync`;
     const body = this.generateIssueBody(locale, issues);
-
+    const existing = (await this.findExistingIssues()).find(i => i.title === title);
     try {
-      // Check if issue already exists
-      const existingIssues = await this.findExistingIssues();
-      const existingIssue = existingIssues.find(issue => issue.title === title);
-
-      if (existingIssue) {
-        // Update existing issue
-        await this.octokit.rest.issues.update({
-          owner: this.owner,
-          repo: this.repo,
-          issue_number: existingIssue.number,
-          title,
-          body,
-        });
-
-        console.log(`✅ Updated existing issue #${existingIssue.number} for ${locale}`);
+      if (existing) {
+        await this.octokit.rest.issues.update({ owner: this.owner, repo: this.repo, issue_number: existing.number, title, body });
+        console.log(`🔄 Updated issue #${existing.number}`);
       } else {
-        // Create new issue
-        const { data: newIssue } = await this.octokit.rest.issues.create({
-          owner: this.owner,
-          repo: this.repo,
-          title,
-          body,
-          labels: [this.issueLabel, 'translation', 'bug'],
-        });
-
-        console.log(`🆕 Created new issue #${newIssue.number} for ${locale}`);
+        const { data } = await this.octokit.rest.issues.create({ owner: this.owner, repo: this.repo, title, body, labels: [this.issueLabel] });
+        console.log(`🆕 Created issue #${data.number}`);
       }
-    } catch (error) {
-      console.error(`❌ Error creating/updating issue for ${locale}:`, error);
+    } catch (err) {
+      console.error('❌ Issue create/update failed:', err);
     }
   }
 
-  /**
-   * Close resolved issues
-   */
-  private async closeResolvedIssues(results: LocaleResults): Promise<void> {
-    const existingIssues = await this.findExistingIssues();
-
-    for (const issue of existingIssues) {
-      // Extract locale from issue title
-      const match = issue.title.match(/\[Locale Sync\] ([A-Z]+) translation keys out of sync/);
-      if (!match) continue;
-
-      const locale = match[1].toLowerCase();
-      const localeResults = results[locale];
-
-      // If locale has no issues, close the issue
-      if (localeResults && localeResults.missing.length === 0 && localeResults.extra.length === 0) {
+  private async closeResolved(results: LocaleResults): Promise<void> {
+    if (!this.octokit || !this.owner || !this.repo) return;
+    const existing = await this.findExistingIssues();
+    for (const issue of existing) {
+      const m = issue.title.match(/\[Locale Sync\] (.+) translation keys out of sync/);
+      if (!m) continue;
+      const locale = m[1].toLowerCase();
+      const { missing, extra } = results[locale] || { missing: [], extra: [] };
+      if (missing.length === 0 && extra.length === 0) {
         try {
-          await this.octokit.rest.issues.update({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: issue.number,
-            state: 'closed',
-          });
-
-          // Add a comment about the resolution
-          await this.octokit.rest.issues.createComment({
-            owner: this.owner,
-            repo: this.repo,
-            issue_number: issue.number,
-            body: `🎉 **Issue Resolved!**\n\nThe ${locale} locale file is now synchronized with the master English locale. All missing and extra keys have been resolved.\n\n*This issue was automatically closed by the Locale Synchronization workflow.*`,
-          });
-
-          console.log(`✅ Closed resolved issue #${issue.number} for ${locale}`);
-        } catch (error) {
-          console.error(`❌ Error closing issue #${issue.number}:`, error);
+          await this.octokit.rest.issues.update({ owner: this.owner, repo: this.repo, issue_number: issue.number, state: 'closed' });
+          console.log(`✅ Closed issue #${issue.number}`);
+        } catch (err) {
+          console.error('❌ Failed to close issue:', err);
         }
       }
     }
   }
 
-  /**
-   * Main execution function
-   */
+  private generateIssueBody(locale: string, issues: LocaleIssues): string {
+    const { missing, extra } = issues;
+    let b = `## Locale Sync for \`${locale}\`\n`;
+    if (missing.length) b += `\nMissing (\`${missing.length}\`): ${missing.join(', ')}\n`;
+    if (extra.length)   b += `\nExtra   (\`${extra.length}\`): ${extra.join(', ')}\n`;
+    return b;
+  }
+
   async run(): Promise<void> {
-    try {
-      console.log('🚀 Starting locale synchronization check...');
-
-      // Check if locales directory exists
-      if (!fs.existsSync(this.localesPath)) {
-        throw new Error(`Locales directory not found: ${this.localesPath}`);
-      }
-
-      // Check locale synchronization
-      const results = this.checkLocaleSync();
-
-      // Save results for GitHub Actions
-      const resultsPath = path.join(process.cwd(), 'locale-check-results.json');
-      fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
-
-      // Process results
-      let hasIssues = false;
-      const localesWithIssues: string[] = [];
-
-      for (const [locale, issues] of Object.entries(results)) {
-        const totalIssues = issues.missing.length + issues.extra.length;
-
-        if (totalIssues > 0) {
-          hasIssues = true;
-          localesWithIssues.push(locale);
-
-          // Create or update GitHub issue
-          await this.createOrUpdateIssue(locale, issues);
+    const results = this.checkLocaleSync();
+    const out = path.join(process.cwd(), 'locale-check-results.json');
+    fs.writeFileSync(out, JSON.stringify(results, null, 2));
+    if (this.octokit) {
+      for (const [loc, iss] of Object.entries(results)) {
+        if (iss.missing.length || iss.extra.length) {
+          await this.createOrUpdateIssue(loc, iss);
         }
       }
-
-      // Close resolved issues
-      await this.closeResolvedIssues(results);
-
-      // Set GitHub Actions output (updated syntax)
-      console.log(`has-issues=${hasIssues}`);
-      console.log(`affected-locales=${localesWithIssues.join(',')}`);
-
-      if (hasIssues) {
-        console.log(
-          `⚠️  Found synchronization issues in ${localesWithIssues.length} locale(s): ${localesWithIssues.join(', ')}`
-        );
-        console.log('📝 GitHub issues have been created/updated for tracking.');
-      } else {
-        console.log('✅ All locale files are synchronized!');
-      }
-    } catch (error) {
-      console.error('❌ Locale synchronization check failed:', error);
-      process.exit(1);
+      await this.closeResolved(results);
     }
   }
 }
 
-// Run the script
-if (require.main === module) {
+// ESM entry-point
+async function main() {
   const checker = new LocaleSyncChecker();
-  checker.run();
+  await checker.run();
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const entryScript = path.resolve(process.argv[1] || '');
+if (__filename === entryScript) {
+  main().catch(e => {
+    console.error('Fatal:', e);
+    process.exit(1);
+  });
 }
