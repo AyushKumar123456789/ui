@@ -42,7 +42,8 @@ jobs:
         id: locale-check
         run: |
           cd frontend
-          node ..frontend/scripts/check-locale-sync.js
+          node scripts/check-locale-sync.js
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
