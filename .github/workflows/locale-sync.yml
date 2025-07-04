@@ -41,9 +41,7 @@ jobs:
       - name: Run locale synchronization check
         id: locale-check
         working-directory: frontend
-        run: |
-          cd frontend
-          run: npm run check-locale-sync
+        run: npm run check-locale-sync
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
