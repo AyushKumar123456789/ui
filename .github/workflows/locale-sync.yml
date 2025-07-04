@@ -40,9 +40,10 @@ jobs:
       
       - name: Run locale synchronization check
         id: locale-check
+        working-directory: frontend
         run: |
           cd frontend
-          node scripts/check-locale-sync.ts
+          run: npm run check-locale-sync
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       

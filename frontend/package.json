@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "check-locale-sync": "ts-node ../scripts/check-locale-sync.ts",
+    "check-locale-sync": "ts-node --esm scripts/check-locale-sync.ts",
     "locale-sync": "npm run check-locale-sync",
     "dev": "vite",
     "build": "tsc -b && vite build",
