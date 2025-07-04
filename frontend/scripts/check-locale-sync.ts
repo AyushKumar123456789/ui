@@ -4,7 +4,7 @@ import { Octokit } from '@octokit/rest';
 
 // Types for better TypeScript support
 interface LocaleData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface LocaleIssues {
@@ -52,15 +52,15 @@ class LocaleSyncChecker {
   /**
    * Recursively flatten nested JSON objects into dot notation keys
    */
-  private flattenObject(obj: any, prefix = ''): string[] {
+  private flattenObject(obj: Record<string, unknown>, prefix = ''): string[] {
     const keys: string[] = [];
 
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         const newKey = prefix ? `${prefix}.${key}` : key;
 
         if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-          keys.push(...this.flattenObject(obj[key], newKey));
+          keys.push(...this.flattenObject(obj[key] as Record<string, unknown>, newKey));
         } else {
           keys.push(newKey);
         }
@@ -82,7 +82,7 @@ class LocaleSyncChecker {
 
     try {
       const content = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(content);
+      return JSON.parse(content) as LocaleData;
     } catch (error) {
       throw new Error(`Failed to parse locale file ${filePath}: ${error}`);
     }
@@ -343,9 +343,9 @@ class LocaleSyncChecker {
       // Close resolved issues
       await this.closeResolvedIssues(results);
 
-      // Set GitHub Actions output
-      console.log(`::set-output name=has-issues::${hasIssues}`);
-      console.log(`::set-output name=affected-locales::${localesWithIssues.join(',')}`);
+      // Set GitHub Actions output (updated syntax)
+      console.log(`has-issues=${hasIssues}`);
+      console.log(`affected-locales=${localesWithIssues.join(',')}`);
 
       if (hasIssues) {
         console.log(
