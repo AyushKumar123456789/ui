@@ -36,7 +36,9 @@ class LocaleSyncChecker {
   constructor() {
     const repository = process.env.GITHUB_REPOSITORY;
     if (!repository) {
-      console.warn('⚠️  GITHUB_REPOSITORY not set; running in local-only mode (no issues will be created).');
+      console.warn(
+        '⚠️  GITHUB_REPOSITORY not set; running in local-only mode (no issues will be created).'
+      );
     } else {
       [this.owner, this.repo] = repository.split('/');
       this.octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
@@ -103,7 +105,9 @@ class LocaleSyncChecker {
         const localeKeys = this.flattenObject(this.loadLocaleFile(locale)).sort();
         const issues = this.compareKeys(masterKeys, localeKeys);
         results[locale] = issues;
-        console.log(`  • ${locale}: ${issues.missing.length} missing, ${issues.extra.length} extra`);
+        console.log(
+          `  • ${locale}: ${issues.missing.length} missing, ${issues.extra.length} extra`
+        );
       } catch (err) {
         console.error(`❌ Error for locale ${locale}:`, err);
         results[locale] = { missing: [], extra: [] };
@@ -115,7 +119,12 @@ class LocaleSyncChecker {
   private async findExistingIssues(): Promise<GitHubIssue[]> {
     if (!this.octokit || !this.owner || !this.repo) return [];
     try {
-      const { data } = await this.octokit.rest.issues.listForRepo({ owner: this.owner, repo: this.repo, labels: this.issueLabel, state: 'open' });
+      const { data } = await this.octokit.rest.issues.listForRepo({
+        owner: this.owner,
+        repo: this.repo,
+        labels: this.issueLabel,
+        state: 'open',
+      });
       return data.map(issue => ({
         number: issue.number,
         title: issue.title,
@@ -136,10 +145,22 @@ class LocaleSyncChecker {
     const existing = (await this.findExistingIssues()).find(i => i.title === title);
     try {
       if (existing) {
-        await this.octokit.rest.issues.update({ owner: this.owner, repo: this.repo, issue_number: existing.number, title, body });
+        await this.octokit.rest.issues.update({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: existing.number,
+          title,
+          body,
+        });
         console.log(`🔄 Updated issue #${existing.number}`);
       } else {
-        const { data } = await this.octokit.rest.issues.create({ owner: this.owner, repo: this.repo, title, body, labels: [this.issueLabel] });
+        const { data } = await this.octokit.rest.issues.create({
+          owner: this.owner,
+          repo: this.repo,
+          title,
+          body,
+          labels: [this.issueLabel],
+        });
         console.log(`🆕 Created issue #${data.number}`);
       }
     } catch (err) {
@@ -157,7 +178,12 @@ class LocaleSyncChecker {
       const { missing, extra } = results[locale] || { missing: [], extra: [] };
       if (missing.length === 0 && extra.length === 0) {
         try {
-          await this.octokit.rest.issues.update({ owner: this.owner, repo: this.repo, issue_number: issue.number, state: 'closed' });
+          await this.octokit.rest.issues.update({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issue.number,
+            state: 'closed',
+          });
           console.log(`✅ Closed issue #${issue.number}`);
         } catch (err) {
           console.error('❌ Failed to close issue:', err);
@@ -170,7 +196,7 @@ class LocaleSyncChecker {
     const { missing, extra } = issues;
     let b = `## Locale Sync for \`${locale}\`\n`;
     if (missing.length) b += `\nMissing (\`${missing.length}\`): ${missing.join(', ')}\n`;
-    if (extra.length)   b += `\nExtra   (\`${extra.length}\`): ${extra.join(', ')}\n`;
+    if (extra.length) b += `\nExtra   (\`${extra.length}\`): ${extra.join(', ')}\n`;
     return b;
   }
 

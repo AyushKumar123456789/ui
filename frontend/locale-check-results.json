@@ -1498,9 +1498,7 @@
       "workloads.yaml.deploy",
       "workloads.yaml.editor"
     ],
-    "extra": [
-      "raiseIssue"
-    ]
+    "extra": ["raiseIssue"]
   },
   "es": {
     "missing": [
@@ -3030,9 +3028,7 @@
       "workloads.yaml.deploy",
       "workloads.yaml.editor"
     ],
-    "extra": [
-      "raiseIssue"
-    ]
+    "extra": ["raiseIssue"]
   },
   "ja": {
     "missing": [
@@ -4547,9 +4543,7 @@
       "workloads.yaml.deploy",
       "workloads.yaml.editor"
     ],
-    "extra": [
-      "raiseIssue"
-    ]
+    "extra": ["raiseIssue"]
   },
   "zh-Hans": {
     "missing": [
@@ -6050,9 +6044,7 @@
       "workloads.yaml.deploy",
       "workloads.yaml.editor"
     ],
-    "extra": [
-      "raiseIssue"
-    ]
+    "extra": ["raiseIssue"]
   },
   "zh-Hant": {
     "missing": [
@@ -7553,8 +7545,6 @@
       "workloads.yaml.deploy",
       "workloads.yaml.editor"
     ],
-    "extra": [
-      "raiseIssue"
-    ]
+    "extra": ["raiseIssue"]
   }
 }
