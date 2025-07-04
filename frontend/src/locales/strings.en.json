@@ -31,7 +31,6 @@
       "warning": "Version mismatch",
       "error": "Missing",
       "installed": "Installed"
-      
     },
     "noResource": "No {{resource}} specified",
     "copy": "Copy",
