@@ -31,7 +31,8 @@
       "warning": "Version mismatch",
       "error": "Missing",
       "installed": "Installed",
-      "testing": "Testing"
+      "testing": "Testing",
+      "Test added successfully": "Test added successfully"
     },
     "noResource": "No {{resource}} specified",
     "copy": "Copy",
