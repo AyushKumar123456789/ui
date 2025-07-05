@@ -30,7 +30,8 @@
       "success": "成功",
       "warning": "バージョンの不一致",
       "error": "見つかりません",
-      "installed": "インストール済み"
+      "installed": "インストール済み",
+      "test":"testing"
     },
     "noResource": "{{resource}}が指定されていません",
     "copy": "コピー",
