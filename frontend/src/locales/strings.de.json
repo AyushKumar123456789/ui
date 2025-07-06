@@ -13,7 +13,8 @@
     "errorCurrentPasswordIncorrect": "Das aktuelle Passwort ist falsch",
     "cancel": "Abbrechen",
     "changePasswordButton": "Passwort ändern",
-    "passwordsMatch": "Passwörter stimmen überein!"
+    "passwordsMatch": "Passwörter stimmen überein!",
+    "to check updation of issue": "test"
   },
   "commandPalette": {
     "ariaLabel": "Befehls-Palette öffnen",
